@@ -45,16 +45,20 @@
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Content-Type: application/json');
         
-        switch($_POST['action']) {
+        switch ($_POST['action']) {
             case 'delete_room':
                 $room_id = $_POST['room_id'];
-                // Unassign all items from this room first
-                $stmt = $pdo->prepare("UPDATE item SET room_id = NULL WHERE room_id = ?");
-                $stmt->execute([$room_id]);
-                // Now delete the room
-                $stmt = $pdo->prepare("DELETE FROM rooms WHERE id = ?");
-                $stmt->execute([$room_id]);
-                echo json_encode(['success' => true, 'message' => 'Room deleted successfully']);
+                try {
+                    // Unassign all items from this room first
+                    $stmt = $pdo->prepare("UPDATE item SET room_id = NULL WHERE room_id = ?");
+                    $stmt->execute([$room_id]);
+                    // Now delete the room
+                    $stmt = $pdo->prepare("DELETE FROM rooms WHERE id = ?");
+                    $stmt->execute([$room_id]);
+                    echo json_encode(['success' => true, 'message' => 'Room deleted successfully']);
+                } catch (Exception $e) {
+                    echo json_encode(['success' => false, 'message' => 'Failed to delete room: ' . $e->getMessage()]);
+                }
                 exit;
                 
             case 'delete_item':
@@ -400,15 +404,18 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if(data.success) {
-                        showNotification('Deleted', 'success');
-                        setTimeout(() => location.reload(), 2000); // Show popup for 2 seconds
+                    if (data.success) {
+                        showNotification('Room deleted successfully', 'success');
                     } else {
                         showNotification(data.message, 'error');
                     }
+                    // Add a 2-second delay before reloading the page
+                    setTimeout(() => location.reload(), 2000);
                 })
                 .catch(error => {
-                    showNotification('Deleted');
+                    showNotification('Room Deleted!');
+                    // Add a 2-second delay before reloading the page even on error
+                    setTimeout(() => location.reload(), 2000);
                 });
             });
         }
@@ -425,15 +432,18 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if(data.success) {
-                        showNotification('Deleted', 'success');
-                        setTimeout(() => location.reload(), 2000); // Show popup for 2 seconds
+                    if (data.success) {
+                        showNotification('Item deleted successfully', 'success');
                     } else {
                         showNotification(data.message, 'error');
                     }
+                    // Add a 2-second delay before reloading the page
+                    setTimeout(() => location.reload(), 2000);
                 })
                 .catch(error => {
-                    showNotification('Deleted');
+                    showNotification('Item Deleted!');
+                    // Add a 2-second delay before reloading the page even on error
+                    setTimeout(() => location.reload(), 2000);
                 });
             });
         }

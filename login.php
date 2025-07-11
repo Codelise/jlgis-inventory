@@ -7,6 +7,25 @@
         exit;
     }
 
+    // --- Lockout logic ---
+    if (!isset($_SESSION['login_attempts'])) $_SESSION['login_attempts'] = 0;
+    if (!isset($_SESSION['lockout_time'])) $_SESSION['lockout_time'] = 0;
+
+    $lockout_duration = 60; // seconds
+    $is_locked = false;
+    $remaining_lockout = 0;
+
+    // If lockout expired, reset attempts and lockout_time
+    if ($_SESSION['lockout_time'] > 0 && time() >= $_SESSION['lockout_time']) {
+        $_SESSION['login_attempts'] = 0;
+        $_SESSION['lockout_time'] = 0;
+    }
+
+    if ($_SESSION['lockout_time'] > time()) {
+        $is_locked = true;
+        $remaining_lockout = $_SESSION['lockout_time'] - time();
+    }
+
     $host = 'localhost';
     $dbname = 'jlgis';
     $username = 'root';
@@ -15,7 +34,7 @@
     $error_message = '';
     $show_popup = false;
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked) {
         try {
             $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password_db);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -28,17 +47,30 @@
 
             if ($admin && password_verify($password_form, $admin['admin_password'])) {
                 $_SESSION['loggedin'] = true;
+                $_SESSION['login_attempts'] = 0;
+                $_SESSION['lockout_time'] = 0;
                 header('Location: inventory.php');
                 exit;
             } else {
-                $show_popup = true;
+                $_SESSION['login_attempts'] += 1;
+                if ($_SESSION['login_attempts'] >= 5) {
+                    $_SESSION['lockout_time'] = time() + $lockout_duration;
+                    $is_locked = true;
+                    $remaining_lockout = $lockout_duration;
+                    $show_popup = false; // Don't show password popup on lockout
+                } else {
+                    $show_popup = true; // Show password popup for attempts < 5
+                }
             }
-
         } catch(PDOException $e) {
             $show_popup = true;
         }
     }
 
+    // Show lockout message only if locked
+    if ($is_locked) {
+        $error_message = "Too many failed attempts. Please wait <span id='lockoutSeconds'>{$remaining_lockout}</span> seconds.";
+    }
 ?>
 
 <!DOCTYPE html>
@@ -75,7 +107,11 @@
 
             <form action="login.php" method="POST">
                 
-                <?php if (!empty($error_message)): ?>
+                <?php if ($is_locked): ?>
+                    <div class="error-banner" id="lockoutMsg">
+                        <?php echo $error_message; ?>
+                    </div>
+                <?php elseif (!empty($error_message)): ?>
                     <div class="error-banner">
                         <?php echo htmlspecialchars($error_message); ?>
                     </div>
@@ -92,9 +128,11 @@
                     </div>
                 </div>
 
-                <button type="submit" class="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg hover:bg-primary-dark transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-offset-2 ring-primary shadow-md hover:shadow-lg">
-                    Login
-                </button>
+                <button type="submit" id="loginBtn"
+    class="w-full bg-primary text-white font-bold py-3 px-4 rounded-lg hover:bg-primary-dark transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-offset-2 ring-primary shadow-md hover:shadow-lg"
+    <?php if ($is_locked) echo 'disabled style="background:#ccc;cursor:not-allowed;"'; ?>>
+    Login
+</button>
             </form>
         </div>
     </div>
@@ -133,7 +171,25 @@
             easterEgg.classList.toggle('show-easter-egg');
         });
 
-
+        <?php if ($is_locked): ?>
+document.addEventListener('DOMContentLoaded', function() {
+    var seconds = <?php echo $remaining_lockout; ?>;
+    var btn = document.getElementById('loginBtn');
+    var span = document.getElementById('lockoutSeconds');
+    var msg = document.getElementById('lockoutMsg');
+    var interval = setInterval(function() {
+        seconds--;
+        if (span) span.textContent = seconds;
+        if (seconds <= 0) {
+            clearInterval(interval);
+            if (msg) msg.style.display = 'none';
+            btn.disabled = false;
+            btn.style.background = '';
+            btn.style.cursor = '';
+        }
+    }, 1000);
+});
+<?php endif; ?>
     </script>
 
 </body>
