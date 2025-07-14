@@ -1,0 +1,30 @@
+Color Palette
+
+#000000
+#ffffff
+
+#0000f8
+#3e3ef8
+#7c7cf8
+#babaf8
+#f8f8f8
+
+#e74c3c
+#2ecc71
+
+#d4cdcd *background*
+
+
+Font = Montserrat
+
+If need niyo pa ng icons, dito kayo kumuha:
+https://iconpark.oceanengine.com/official
+
+
+Media Queries Used
+
+@media (max-width: 1024px)
+@media (max-width: 768px)
+@media (max-width: 480px)
+
+login password = 1952jlgis
