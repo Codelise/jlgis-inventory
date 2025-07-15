@@ -189,6 +189,10 @@ body {
     font-size: 14px;
     margin-left: 10px;
 }
+.btn-small:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(83, 81, 80, 0.4);
+}
 
 .btn-danger {
     background: #e74c3c;
@@ -382,7 +386,7 @@ body {
 
 .inventory-table th,.inventory-table td {
     padding: 15px;
-    text-align: left;
+    text-align: center;
     border-bottom: 1px solid #eee;
 }
 
@@ -394,6 +398,7 @@ body {
     letter-spacing: 0.5px;
     font-size: 14px;
     border-bottom: 2px solid #e0e0e0;
+    text-align: center;
 }
 
 .inventory-table tr:hover {
@@ -566,7 +571,7 @@ body {
     padding: 0;
     border-radius: 15px;
     width: 90%;
-    max-width: 800px;
+    max-width: 900px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     animation: slideIn 0.3s ease-out;
     position: relative;
@@ -647,6 +652,65 @@ body {
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
+
+/* Confirmation Modal Styles */
+
+#generateReportModal .modal-content{
+   display: flex;
+   flex-direction: column;
+   text-align: center;
+   width: 500px;
+   height: 210px;
+}
+
+ .modal-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-body p {
+    font-size: 1.3rem;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.modal-buttons .btn-primary {
+    background: #20b55e;
+}
+
+.modal-buttons .btn-secondary {
+    background: #e74c3c;
+}
+
+.btn-secondary:hover {
+    box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+}
+
+#exportDataModal .modal-content {
+   display: flex;
+   flex-direction: column;
+   text-align: center;
+   width: 500px;
+   height: 210px;
+}
+
+#clearAllDataModal .modal-content {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    width: 500px;
+    height: 210px;
+ }
+ 
+
+
 
 .room-card {
     cursor: pointer;
@@ -784,4 +848,36 @@ body {
         padding: 8px 5px;
     }
 
+}
+
+/* Style for the year filter dropdown */
+#yearFilter, select[name="year"] {
+    padding: 8px 16px;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 24px;
+    background: #fff;
+    font-size: 1em;
+    color: #444;
+    outline: none;
+    margin-left: 10px;
+    box-shadow: 0 2px 8px rgba(60,60,100,0.06);
+    transition: border 0.2s, box-shadow 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+#yearFilter:focus, select[name="year"]:focus {
+    border: 1.5px solid #7c7cf8;
+    box-shadow: 0 4px 16px rgba(124,124,248,0.10);
+}
+
+#yearFilter option, select[name="year"] option {
+    color: #333;
+}
+
+.search-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }

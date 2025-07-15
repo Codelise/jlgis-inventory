@@ -50,8 +50,8 @@
             Are you sure you want to logout?
         </div>
         <div class="logout-confirmation-modal-actions">
-            <button class="btn btn-secondary" onclick="confirmLogout()">Yes</button>
-            <button class="btn btn-danger" onclick="closeLogoutModal()">No</button>
+            <button class="btn btn-primary" onclick="confirmLogout()">Yes</button>
+            <button class="btn btn-secondary" onclick="closeLogoutModal()">No</button>
         </div>
     </div>
 </div>
@@ -96,19 +96,19 @@
     cursor: pointer;
     transition: background 0.2s;
 }
-.logout-confirmation-modal-actions .btn-secondary {
-    background: #4f8cff;
+.logout-confirmation-modal-actions .btn-primary {
+    background: #20b55e;
     color: #fff;
 }
-.logout-confirmation-modal-actions .btn-secondary:hover {
-    background: #2563eb;
+.logout-confirmation-modal-actions .btn-primary:hover {
+    box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
 }
-.logout-confirmation-modal-actions .btn-danger {
+.logout-confirmation-modal-actions .btn-secondary {
     background: #e74c3c;
     color: #fff;
 }
-.logout-confirmation-modal-actions .btn-danger:hover {
-    background: #c0392b;
+.logout-confirmation-modal-actions .btn-secondary:hover {
+    box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
 }
 </style>
 

@@ -43,9 +43,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $building_number = $_POST['building_number'];
                 $room_type = $_POST['room_type'];
                 $teacher_name = !empty($_POST['teacher_name']) ? $_POST['teacher_name'] : null;
+                $grade_level = isset($_POST['grade_level']) ? $_POST['grade_level'] : null;
                 
-                $stmt = $pdo->prepare("INSERT INTO rooms (room_name, room_number, building_number, room_type, teacher_name) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$room_name, $room_number, $building_number, $room_type, $teacher_name]);
+                $stmt = $pdo->prepare("INSERT INTO rooms (room_name, room_number, building_number, grade_level, room_type, teacher_name) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$room_name, $room_number, $building_number, $grade_level, $room_type, $teacher_name]);
                 echo json_encode(['success' => true, 'message' => 'Room added successfully']);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
@@ -75,9 +76,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $expected_quantity = (int)$_POST['expected_quantity'];
                 $ownership = $_POST['ownership'];
                 $remarks = !empty($_POST['remarks']) ? $_POST['remarks'] : null;
+                $year = isset($_POST['year']) ? $_POST['year'] : null;
 
-                $stmt = $pdo->prepare("INSERT INTO roomInventory (room_id, item_id, quantity, expected_quantity, ownership, remarks) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$room_id, $item_id, $quantity, $expected_quantity, $ownership, $remarks]);
+                $stmt = $pdo->prepare("INSERT INTO roominventory (room_id, item_id, quantity, expected_quantity, ownership, remarks, year) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$room_id, $item_id, $quantity, $expected_quantity, $ownership, $remarks, $year]);
                 echo json_encode(['success' => true, 'message' => 'Inventory item added successfully']);
             } catch (Exception $e) {
                 echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
@@ -86,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
         case 'clear_all':
             try {
-                $pdo->exec("DELETE FROM roomInventory");
+                $pdo->exec("DELETE FROM roominventory");
                 $pdo->exec("DELETE FROM items");
                 $pdo->exec("DELETE FROM rooms");
                 echo json_encode(['success' => true, 'message' => 'All data cleared successfully']);
@@ -105,10 +107,10 @@ $stats['total_rooms'] = $stmt->fetchColumn();
 $stmt = $pdo->query("SELECT COUNT(*) as total_items FROM items");
 $stats['total_items'] = $stmt->fetchColumn();
 
-$stmt = $pdo->query("SELECT COUNT(*) as total_inventory FROM roomInventory");
+$stmt = $pdo->query("SELECT COUNT(*) as total_inventory FROM roominventory");
 $stats['total_inventory'] = $stmt->fetchColumn();
 
-$stmt = $pdo->query("SELECT SUM(quantity) as total_quantity FROM roomInventory");
+$stmt = $pdo->query("SELECT SUM(quantity) as total_quantity FROM roominventory");
 $stats['total_quantity'] = $stmt->fetchColumn() ?: 0;
 
 include 'sidebar.php';
@@ -170,6 +172,27 @@ include 'sidebar.php';
                         <div class="form-group">
                             <label for="buildingNumber">Building Number</label>
                             <input type="text" id="buildingNumber" placeholder="Enter building number" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="gradeLevel">Grade Level</label>
+                            <select id="gradeLevel" required>
+                                <option value="" disabled selected>Select grade level</option>
+                                <option value="Kindergarten">Kindergarten</option>
+                                <option value="Grade 1">Grade 1</option>
+                                <option value="Grade 2">Grade 2</option>
+                                <option value="Grade 3">Grade 3</option>
+                                <option value="Grade 4">Grade 4</option>
+                                <option value="Grade 5">Grade 5</option>
+                                <option value="Grade 6">Grade 6</option>
+                                <option value="Grade 7">Grade 7</option>
+                                <option value="Grade 8">Grade 8</option>
+                                <option value="Grade 9">Grade 9</option>
+                                <option value="Grade 10">Grade 10</option>
+                                <option value="Grade 11">Grade 11</option>
+                                <option value="Grade 12">Grade 12</option>
+                                <option value="Office">Office</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label for="roomType">Room Type</label>
@@ -277,6 +300,20 @@ include 'sidebar.php';
                             </select>
                         </div>
                         <div class="form-group">
+                            <label for="inventoryYear">School Year</label>
+                            <select id="inventoryYear" required>
+                                <option value="" disabled selected>Select year</option>
+                                <option value="2022-2023">2022-2023</option>
+                                <option value="2023-2024">2023-2024</option>
+                                <option value="2024-2025">2024-2025</option>
+                                <option value="2025-2026">2025-2026</option>
+                                <option value="2026-2027">2026-2027</option>
+                                <option value="2027-2028">2027-2028</option>
+                                <option value="2028-2029">2028-2029</option>
+                                <option value="2029-2030">2029-2030</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label for="inventoryRemarks">Remarks (Optional)</label>
                             <textarea id="inventoryRemarks" placeholder="Enter remarks"></textarea>
                         </div>
@@ -312,6 +349,52 @@ include 'sidebar.php';
 
     <div id="notificationPopup" style="display:none;position:fixed;top:40px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:16px 32px;border-radius:8px;z-index:2000;font-size:1.1em;box-shadow:0 4px 16px rgba(0,0,0,0.15);"></div>
 
+    <!-- Confirmation Modals -->
+    <div id="generateReportModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Generate Report</h2>
+            </div>
+            <div class="modal-body">
+                <p>Would you like to generate report?</p>
+                <div class="modal-buttons" style="display: flex;">
+                    <button class="btn btn-primary" onclick="confirmGenerateReport()">Yes</button>
+                    <button class="btn btn-secondary" onclick="closeModal('generateReportModal')">No</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="exportDataModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Export Data</h2>
+            </div>
+            <div class="modal-body">
+                <p>Would you like to export data?</p>
+                <div class="modal-buttons">
+                    <button class="btn btn-success" onclick="confirmExportData()">Yes</button>
+                    <button class="btn btn-secondary" onclick="closeModal('exportDataModal')">No</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="clearAllDataModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Clear All Data</h2>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to clear data?</p>
+                <div class="modal-buttons">
+                    <button class="btn btn-primary" onclick="confirmClearAllData()">Yes</button>
+                    <button class="btn btn-secondary" onclick="closeModal('clearAllDataModal')">No</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Add Room Form Handler
         document.getElementById('roomForm').addEventListener('submit', function(e) {
@@ -321,13 +404,14 @@ include 'sidebar.php';
             const buildingNumber = document.getElementById('buildingNumber').value;
             const roomType = document.getElementById('roomType').value;
             const teacherName = document.getElementById('teacherName').value;
+            const gradeLevel = document.getElementById('gradeLevel').value;
             
             fetch('', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `action=add_room&room_name=${encodeURIComponent(roomName)}&room_number=${encodeURIComponent(roomNumber)}&building_number=${encodeURIComponent(buildingNumber)}&room_type=${encodeURIComponent(roomType)}&teacher_name=${encodeURIComponent(teacherName)}`
+                body: `action=add_room&room_name=${encodeURIComponent(roomName)}&room_number=${encodeURIComponent(roomNumber)}&building_number=${encodeURIComponent(buildingNumber)}&grade_level=${encodeURIComponent(gradeLevel)}&room_type=${encodeURIComponent(roomType)}&teacher_name=${encodeURIComponent(teacherName)}`
             })
             .then(response => response.json())
             .then(data => {
@@ -381,13 +465,14 @@ include 'sidebar.php';
             const inventoryExpectedQuantity = document.getElementById('inventoryExpectedQuantity').value;
             const inventoryOwnership = document.getElementById('inventoryOwnership').value;
             const inventoryRemarks = document.getElementById('inventoryRemarks').value;
+            const inventoryYear = document.getElementById('inventoryYear').value;
 
             fetch('', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `action=add_inventory&room_id=${selectRoom}&item_id=${selectItem}&quantity=${inventoryQuantity}&expected_quantity=${inventoryExpectedQuantity}&ownership=${encodeURIComponent(inventoryOwnership)}&remarks=${encodeURIComponent(inventoryRemarks)}`
+                body: `action=add_inventory&room_id=${selectRoom}&item_id=${selectItem}&quantity=${inventoryQuantity}&expected_quantity=${inventoryExpectedQuantity}&ownership=${encodeURIComponent(inventoryOwnership)}&remarks=${encodeURIComponent(inventoryRemarks)}&year=${encodeURIComponent(inventoryYear)}`
             })
             .then(response => response.json())
             .then(data => {
@@ -402,38 +487,60 @@ include 'sidebar.php';
             });
         });
 
-        // Clear All Data Function
-        function clearAllData() {
-            if(confirm('Are you sure you want to clear all data? This cannot be undone.')) {
-                fetch('', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: 'action=clear_all'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if(data.success) {
-                        showNotification(data.message, 'success');
-                        setTimeout(() => location.reload(), 1000);
-                    } else {
-                        showNotification(data.message, 'error');
-                    }
-                })
-                .catch(error => {
-                    showNotification('Error clearing data', 'error');
-                });
-            }
+        // Modal Functions
+        function showModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
         }
 
-        // Export Data Function
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Clear All Data Functions
+        function clearAllData() {
+            showModal('clearAllDataModal');
+        }
+
+        function confirmClearAllData() {
+            closeModal('clearAllDataModal');
+            fetch('', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=clear_all'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Error clearing data', 'error');
+            });
+        }
+
+        // Export Data Functions
         function exportData() {
+            showModal('exportDataModal');
+        }
+
+        function confirmExportData() {
+            closeModal('exportDataModal');
             window.open('export.php', '_blank');
         }
 
-        // Generate Report Function
+        // Generate Report Functions
         function generateReport() {
+            showModal('generateReportModal');
+        }
+
+        function confirmGenerateReport() {
+            closeModal('generateReportModal');
             window.open('report.php', '_blank');
         }
 

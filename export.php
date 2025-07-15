@@ -22,18 +22,18 @@
         SELECT ri.*, 
                r.room_name, r.room_number, r.building_number, r.room_type, r.teacher_name,
                i.item_name, i.category, i.description, i.unit
-        FROM roomInventory ri
+        FROM roominventory ri
         JOIN rooms r ON ri.room_id = r.room_id
         JOIN items i ON ri.item_id = i.item_id
         ORDER BY r.building_number, r.room_number, i.item_name
     ");
-    $roomInventory = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $roominventory = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $exportData = [
         'export_date' => date('Y-m-d H:i:s'),
         'rooms' => $rooms,
         'items' => $items,
-        'roomInventory' => $roomInventory
+        'roominventory' => $roominventory
     ];
 
     header('Content-Type: application/json');

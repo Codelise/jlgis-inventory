@@ -25,7 +25,7 @@
                ri.quantity, ri.expected_quantity, ri.ownership, ri.remarks,
                i.item_name, i.category, i.description, i.unit
         FROM rooms r 
-        LEFT JOIN roomInventory ri ON r.room_id = ri.room_id 
+        LEFT JOIN roominventory ri ON r.room_id = ri.room_id 
         LEFT JOIN items i ON ri.item_id = i.item_id
         ORDER BY r.building_number, r.room_number, i.category, i.item_name
     ");

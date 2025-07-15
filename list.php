@@ -26,7 +26,7 @@
             case 'delete_room':
                 $room_id = $_POST['room_id'];
                 try {
-                    $stmt = $pdo->prepare("DELETE FROM roomInventory WHERE room_id = ?");
+                    $stmt = $pdo->prepare("DELETE FROM roominventory WHERE room_id = ?");
                     $stmt->execute([$room_id]);
                     $stmt = $pdo->prepare("DELETE FROM rooms WHERE room_id = ?");
                     $stmt->execute([$room_id]);
@@ -43,10 +43,11 @@
                 $building_number = $_POST['building_number'];
                 $room_type = $_POST['room_type'];
                 $teacher_name = $_POST['teacher_name'];
+                $grade_level = isset($_POST['grade_level']) ? $_POST['grade_level'] : null;
                 
                 try {
-                    $stmt = $pdo->prepare("UPDATE rooms SET room_number = ?, room_name = ?, building_number = ?, room_type = ?, teacher_name = ? WHERE room_id = ?");
-                    $stmt->execute([$room_number, $room_name, $building_number, $room_type, $teacher_name, $room_id]);
+                    $stmt = $pdo->prepare("UPDATE rooms SET room_number = ?, room_name = ?, building_number = ?, grade_level = ?, room_type = ?, teacher_name = ? WHERE room_id = ?");
+                    $stmt->execute([$room_number, $room_name, $building_number, $grade_level, $room_type, $teacher_name, $room_id]);
                     echo json_encode(['success' => true, 'message' => 'Room updated successfully']);
                 } catch (Exception $e) {
                     echo json_encode(['success' => false, 'message' => 'Failed to update room: ' . $e->getMessage()]);
@@ -56,7 +57,7 @@
             case 'delete_item':
                 $inventory_id = $_POST['inventory_id'];
                 try {
-                    $stmt = $pdo->prepare("DELETE FROM roomInventory WHERE inventory_id = ?");
+                    $stmt = $pdo->prepare("DELETE FROM roominventory WHERE inventory_id = ?");
                     $stmt->execute([$inventory_id]);
                     echo json_encode(['success' => true, 'message' => 'Item deleted successfully']);
                 } catch (Exception $e) {
@@ -72,7 +73,7 @@
                 $remarks = $_POST['remarks'];
                 
                 try {
-                    $stmt = $pdo->prepare("UPDATE roomInventory SET quantity = ?, expected_quantity = ?, ownership = ?, remarks = ? WHERE inventory_id = ?");
+                    $stmt = $pdo->prepare("UPDATE roominventory SET quantity = ?, expected_quantity = ?, ownership = ?, remarks = ? WHERE inventory_id = ?");
                     $stmt->execute([$quantity, $expected_quantity, $ownership, $remarks, $inventory_id]);
                     echo json_encode(['success' => true, 'message' => 'Item updated successfully']);
                 } catch (Exception $e) {
@@ -85,6 +86,16 @@
     include 'sidebar.php';
 
     $search = isset($_GET['search']) ? $_GET['search'] : '';
+    $sort = isset($_GET['sort']) ? $_GET['sort'] : 'room_number';
+    $sortOptions = [
+        'grade_level' => 'r.grade_level',
+        'room_number' => 'r.room_number',
+        'product_name' => 'i.item_name',
+        'ownership' => 'ri.ownership'
+    ];
+    $orderBy = isset($sortOptions[$sort]) ? $sortOptions[$sort] : 'r.room_number';
+
+    $year_filter = isset($_GET['year']) ? $_GET['year'] : '';
 
     $query = "SELECT 
         ri.inventory_id,
@@ -96,16 +107,24 @@
         r.room_number,
         ri.ownership,
         ri.remarks,
-        ri.created_at
-    FROM roomInventory ri
+        ri.created_at,
+        ri.year
+    FROM roominventory ri
     LEFT JOIN items i ON ri.item_id = i.item_id
     LEFT JOIN rooms r ON ri.room_id = r.room_id";
 
     $params = [];
 
-    if (!empty($search)) {
+    if (!empty($search) && !empty($year_filter)) {
+        $query .= " WHERE (i.item_name LIKE :search OR i.category LIKE :search OR r.room_number LIKE :search OR ri.ownership LIKE :search) AND ri.year = :year_filter";
+        $params[':search'] = '%' . $search . '%';
+        $params[':year_filter'] = $year_filter;
+    } elseif (!empty($search)) {
         $query .= " WHERE i.item_name LIKE :search OR i.category LIKE :search OR r.room_number LIKE :search OR ri.ownership LIKE :search";
         $params[':search'] = '%' . $search . '%';
+    } elseif (!empty($year_filter)) {
+        $query .= " WHERE ri.year = :year_filter";
+        $params[':year_filter'] = $year_filter;
     }
 
     $query .= " ORDER BY ri.inventory_id ASC";
@@ -114,11 +133,14 @@
     $items_per_page = 5;
     $offset = ($page - 1) * $items_per_page;
 
-    $count_query = "SELECT COUNT(*) FROM roomInventory ri 
+    $count_query = "SELECT COUNT(*) FROM roominventory ri 
                     LEFT JOIN items i ON ri.item_id = i.item_id 
                     LEFT JOIN rooms r ON ri.room_id = r.room_id";
     if (!empty($search)) {
         $count_query .= " WHERE i.item_name LIKE :search OR i.category LIKE :search OR r.room_number LIKE :search OR ri.ownership LIKE :search";
+    }
+    if (!empty($year_filter)) {
+        $count_query .= " AND ri.year = :year_filter";
     }
 
     $count_stmt = $pdo->prepare($count_query);
@@ -146,12 +168,12 @@
 
     // Rooms query
     $stmt = $pdo->query("
-        SELECT r.room_id, r.room_number, r.room_name, r.building_number, r.room_type, r.teacher_name, r.created_at,
+        SELECT r.room_id, r.room_number, r.room_name, r.building_number, r.grade_level, r.room_type, r.teacher_name, r.created_at,
             COUNT(ri.inventory_id) as item_count
         FROM rooms r 
-        LEFT JOIN roomInventory ri ON r.room_id = ri.room_id 
-        GROUP BY r.room_id, r.room_number, r.room_name, r.building_number, r.room_type, r.teacher_name, r.created_at
-        ORDER BY r.room_number
+        LEFT JOIN roominventory ri ON r.room_id = ri.room_id 
+        GROUP BY r.room_id, r.room_number, r.room_name, r.building_number, r.grade_level, r.room_type, r.teacher_name, r.created_at
+        ORDER BY $orderBy
     ");
     $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -163,7 +185,7 @@
     foreach($rooms as $room) {
         $stmt = $pdo->prepare("
             SELECT ri.inventory_id, i.item_name, i.category, ri.quantity, ri.expected_quantity, ri.ownership 
-            FROM roomInventory ri 
+            FROM roominventory ri 
             JOIN items i ON ri.item_id = i.item_id 
             WHERE ri.room_id = ? 
             ORDER BY i.item_name
@@ -196,11 +218,26 @@
                 <h1>Current Inventory</h1>
                 <p>Manage and view your inventory items</p>
             </div>
-            
+            <div class="sort-buttons" style="display: flex; gap: 10px; margin: 20px 0; justify-content: center;">
+                <a href="?sort=grade_level" class="btn btn-small" style="background: <?php echo $sort === 'grade_level' ? '#7c7cf8' : '#eee'; ?>; color: <?php echo $sort === 'grade_level' ? '#fff' : '#333'; ?>; text-decoration: none;">Sort by Grade</a>
+                <a href="?sort=room_number" class="btn btn-small" style="background: <?php echo $sort === 'room_number' ? '#7c7cf8' : '#eee'; ?>; color: <?php echo $sort === 'room_number' ? '#fff' : '#333'; ?>; text-decoration: none;">Sort by Room</a>
+                <a href="?sort=year<?php echo $year_filter ? '&year=' . urlencode($year_filter) : ''; ?>" class="btn btn-small" style="background: <?php echo $sort === 'year' ? '#7c7cf8' : '#eee'; ?>; color: <?php echo $sort === 'year' ? '#fff' : '#333'; ?>; text-decoration: none;">Sort by Year</a>
+            </div>
             <div class="card">
-                <div class="search-bar">
+                <div class="search-bar" style="display: flex; align-items: center; gap: 1rem;">
                     <form method="GET" style="display: inline;">
                         <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="🔍 Search items, categories, room numbers, or ownership...">
+                        <select name="year" id="yearFilter" onchange="this.form.submit()" style="margin-left: 10px;">
+                            <option value="">All Years</option>
+                            <option value="2022-2023" <?php if($year_filter==="2022-2023") echo 'selected'; ?>>2022-2023</option>
+                            <option value="2023-2024" <?php if($year_filter==="2023-2024") echo 'selected'; ?>>2023-2024</option>
+                            <option value="2024-2025" <?php if($year_filter==="2024-2025") echo 'selected'; ?>>2024-2025</option>
+                            <option value="2025-2026" <?php if($year_filter==="2025-2026") echo 'selected'; ?>>2025-2026</option>
+                            <option value="2026-2027" <?php if($year_filter==="2026-2027") echo 'selected'; ?>>2026-2027</option>
+                            <option value="2027-2028" <?php if($year_filter==="2027-2028") echo 'selected'; ?>>2027-2028</option>
+                            <option value="2028-2029" <?php if($year_filter==="2028-2029") echo 'selected'; ?>>2028-2029</option>
+                            <option value="2029-2030" <?php if($year_filter==="2029-2030") echo 'selected'; ?>>2029-2030</option>
+                        </select>
                     </form>
                 </div>
                 
@@ -215,6 +252,7 @@
                                     <th>Expected Quantity</th>
                                     <th>Room</th>
                                     <th>Ownership</th>
+                                    <th>Year</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -235,7 +273,8 @@
                                                 <?php echo htmlspecialchars($item['ownership']); ?>
                                             </span>
                                         </td>
-                                        <td>
+                                        <td><?php echo htmlspecialchars($item['year'] ?? ''); ?></td>
+                                        <td style="display: flex">
                                             <button class="btn btn-small btn-primary" onclick="editItem(<?php echo $item['inventory_id']; ?>, <?php echo $item['quantity']; ?>, <?php echo $item['expected_quantity']; ?>, '<?php echo htmlspecialchars($item['ownership'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($item['remarks'] ?? '', ENT_QUOTES); ?>')">Edit</button>
                                             <button class="btn btn-small btn-danger" onclick="deleteItem(<?php echo $item['inventory_id']; ?>)">Delete</button>
                                         </td>
@@ -257,7 +296,7 @@
                     <?php if ($total_pages > 1): ?>
                         <div class="pagination">
                             <?php if ($page > 1): ?>
-                                <a href="?page=<?php echo ($page - 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>" class="btn">Previous</a>
+                                <a href="?page=<?php echo ($page - 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?><?php echo !empty($year_filter) ? '&year=' . urlencode($year_filter) : ''; ?>" class="btn">Previous</a>
                             <?php else: ?>
                                 <span class="btn disabled">Previous</span>
                             <?php endif; ?>
@@ -266,12 +305,12 @@
                                 <?php if ($i == $page): ?>
                                     <span class="btn current"><?php echo $i; ?></span>
                                 <?php else: ?>
-                                    <a href="?page=<?php echo $i; ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>" class="btn"><?php echo $i; ?></a>
+                                    <a href="?page=<?php echo $i; ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?><?php echo !empty($year_filter) ? '&year=' . urlencode($year_filter) : ''; ?>" class="btn"><?php echo $i; ?></a>
                                 <?php endif; ?>
                             <?php endfor; ?>
                             
                             <?php if ($page < $total_pages): ?>
-                                <a href="?page=<?php echo ($page + 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?>" class="btn">Next</a>
+                                <a href="?page=<?php echo ($page + 1); ?><?php echo !empty($search) ? '&search=' . urlencode($search) : ''; ?><?php echo !empty($year_filter) ? '&year=' . urlencode($year_filter) : ''; ?>" class="btn">Next</a>
                             <?php else: ?>
                                 <span class="btn disabled">Next</span>
                             <?php endif; ?>
@@ -318,6 +357,9 @@
                                 <div class="room-info">
                                     <span class="room-type"><?php echo htmlspecialchars($room['room_type']); ?></span>
                                     <span class="building">Building <?php echo htmlspecialchars($room['building_number']); ?></span>
+                                    <?php if (!empty($room['grade_level'])): ?>
+                                        <span class="grade-level">Grade Level: <?php echo htmlspecialchars($room['grade_level']); ?></span>
+                                    <?php endif; ?>
                                 </div>
                                 <?php if (!empty($room['teacher_name'])): ?>
                                     <div class="teacher-name">Teacher: <?php echo htmlspecialchars($room['teacher_name']); ?></div>
@@ -325,13 +367,14 @@
                             </div>
                             
                             <div style="margin-top: 30px; display: flex; gap: 10px;">
-                                <button class="btn btn-small btn-primary" onclick="editRoom(<?php echo $room['room_id']; ?>, '<?php echo htmlspecialchars($room['room_number']); ?>', '<?php echo htmlspecialchars($room['room_name']); ?>', '<?php echo htmlspecialchars($room['building_number']); ?>', '<?php echo htmlspecialchars($room['room_type']); ?>', '<?php echo htmlspecialchars($room['teacher_name']); ?>')">Edit Room</button>
+                                <button class="btn btn-small btn-primary" onclick="editRoom(<?php echo $room['room_id']; ?>, '<?php echo htmlspecialchars($room['room_number']); ?>', '<?php echo htmlspecialchars($room['room_name']); ?>', '<?php echo htmlspecialchars($room['building_number']); ?>', '<?php echo htmlspecialchars($room['room_type']); ?>', '<?php echo htmlspecialchars($room['teacher_name']); ?>', '<?php echo htmlspecialchars($room['grade_level']); ?>')">Edit Room</button>
                                 <button class="btn btn-small btn-danger" onclick="deleteRoom(<?php echo $room['room_id']; ?>)">Delete Room</button>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </div>
+          
         </div>
     </div>
 
@@ -391,6 +434,27 @@
                         <input type="text" id="editBuildingNumber" name="building_number">
                     </div>
                     <div class="form-group">
+                        <label for="editGradeLevel">Grade Level:</label>
+                        <select id="editGradeLevel" name="grade_level">
+                            <option value="" disabled selected>Select grade level</option>
+                            <option value="Kindergarten">Kindergarten</option>
+                            <option value="Grade 1">Grade 1</option>
+                            <option value="Grade 2">Grade 2</option>
+                            <option value="Grade 3">Grade 3</option>
+                            <option value="Grade 4">Grade 4</option>
+                            <option value="Grade 5">Grade 5</option>
+                            <option value="Grade 6">Grade 6</option>
+                            <option value="Grade 7">Grade 7</option>
+                            <option value="Grade 8">Grade 8</option>
+                            <option value="Grade 9">Grade 9</option>
+                            <option value="Grade 10">Grade 10</option>
+                            <option value="Grade 11">Grade 11</option>
+                            <option value="Grade 12">Grade 12</option>
+                            <option value="Office">Office</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="editRoomType">Room Type:</label>
                         <select id="editRoomType" name="room_type">
                             <option value="Classroom">Classroom</option>
@@ -401,7 +465,7 @@
                         <label for="editTeacherName">Teacher Name:</label>
                         <input type="text" id="editTeacherName" name="teacher_name">
                     </div>
-                    <div class="form-actions">
+                    <div class="form-actions" style="display: flex;">
                         <button type="submit" class="btn btn-small btn-primary">Update Room</button>
                         <button type="button" class="btn btn-small btn-danger" onclick="closeEditRoomModal()">Cancel</button>
                     </div>
@@ -441,7 +505,7 @@
                         <label for="editItemRemarks">Remarks:</label>
                         <textarea id="editItemRemarks" name="remarks" rows="3"></textarea>
                     </div>
-                    <div class="form-actions">
+                    <div class="form-actions" style="display: flex;">
                         <button type="submit" class="btn btn-small btn-primary">Update Item</button>
                         <button type="button" class="btn btn-small btn-danger" onclick="closeEditItemModal()">Cancel</button>
                     </div>
@@ -454,8 +518,8 @@
         <div style="background:#fff;padding:32px 24px;border-radius:12px;max-width:90vw;width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.18);text-align:center;">
             <div id="confirmMessage" style="margin-bottom:24px;font-size:1.1em;"></div>
             <div style="display:flex;justify-content:center;gap:12px;">
-                <button id="confirmYes" class="btn btn-danger">YES</button>
-                <button id="confirmNo" class="btn btn-primary">CANCEL</button>
+                <button id="confirmYes" class="btn btn-primary" style="background: #20b55e;">YES</button>
+                <button id="confirmNo" class="btn btn-secondary" style="background: #e74c3c;">CANCEL</button>
             </div>
         </div>
     </div>
@@ -497,7 +561,7 @@
                                 <td>${item.quantity} ${item.unit}</td>
                                 <td>${item.expected_quantity} ${item.unit}</td>
                                 <td><span class="ownership-badge ownership-${item.ownership.toLowerCase().replace(' ', '-')}">${item.ownership}</span></td>
-                                <td>
+                                <td style="display: flex;">
                                     <button class="btn btn-small btn-primary" onclick="editItem(${item.inventory_id}, ${item.quantity}, ${item.expected_quantity}, '${item.ownership}', '${item.remarks || ''}')">Edit</button>
                                     <button class="btn btn-small btn-danger" onclick="deleteItem(${item.inventory_id})">Delete</button>
                                 </td>
@@ -521,11 +585,12 @@
         }
         
         // Edit Room Functions
-        function editRoom(roomId, roomNumber, roomName, buildingNumber, roomType, teacherName) {
+        function editRoom(roomId, roomNumber, roomName, buildingNumber, roomType, teacherName, gradeLevel) {
             document.getElementById('editRoomId').value = roomId;
             document.getElementById('editRoomNumber').value = roomNumber;
             document.getElementById('editRoomName').value = roomName;
             document.getElementById('editBuildingNumber').value = buildingNumber;
+            document.getElementById('editGradeLevel').value = gradeLevel;
             document.getElementById('editRoomType').value = roomType;
             document.getElementById('editTeacherName').value = teacherName;
             document.getElementById('editRoomModal').style.display = 'block';

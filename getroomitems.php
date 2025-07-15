@@ -56,7 +56,7 @@
                 ri.remarks,
                 ri.created_at,
                 ri.updated_at
-            FROM roomInventory ri
+            FROM roominventory ri
             INNER JOIN items i ON ri.item_id = i.item_id
             WHERE ri.room_id = ?
             ORDER BY i.item_name ASC
